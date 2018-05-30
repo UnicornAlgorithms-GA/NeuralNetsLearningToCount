@@ -83,9 +83,8 @@ namespace NeuralNetsLearningToCount
 						i,
 						best.Fitness,
 						fintessSum));
-
-					//if (i % 300 == 0)
-						neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
+                        
+					neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
 				}
 
                 program.Evolve();
