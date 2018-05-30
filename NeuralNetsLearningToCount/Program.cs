@@ -53,6 +53,8 @@ namespace NeuralNetsLearningToCount
 
             NeuralGenomeToJSONExtension.distBetweenNodes *= 5;
             NeuralGenomeToJSONExtension.randomPosTries = 10;
+			NeuralGenomeToJSONExtension.xPadding = 0.03f;
+			NeuralGenomeToJSONExtension.yPadding = 0.03f;
 
 			var program = new Program();
 
@@ -82,15 +84,15 @@ namespace NeuralNetsLearningToCount
 						best.Fitness,
 						fintessSum));
 
-					if (i % 100 == 0)
+					//if (i % 300 == 0)
 						neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
 				}
 
                 program.Evolve();
             }
-
-            fitnessCollector.Draw();
+            
 			neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
+			//fitnessCollector.Draw();
         }
 
 		public Program()
@@ -101,7 +103,7 @@ namespace NeuralNetsLearningToCount
                 synapseTracker,
 				inputs,
 				inputs,
-                new[] { 6 },
+                new[] { 7 },
                 () => (float)GARandomManager.Random.NextDouble(-1, 1),
                 true
 			);
@@ -157,7 +159,7 @@ namespace NeuralNetsLearningToCount
         {
             var fitness = 0d;
 			for (var i = 0; i < Math.Pow(2, inputs) - 1; i++)
-			{            
+			{
 				genome.FeedNeuralNetwork(GetBits(i).Select(x => (float)x).ToArray());
 				var expectedOutput = GetBits(i + 1);
 				fitness -= genome.Outputs.Select(x => x.Value)
@@ -165,9 +167,19 @@ namespace NeuralNetsLearningToCount
 								 .Sum();
 			}
 
-			if (Math.Abs(fitness) < 0.01)
+			if (!targetReached && Math.Abs(fitness) < 0.01)
+			{
 				targetReached = true;
+				for (var i = 0; i < Math.Pow(2, inputs) - 1; i++)
+                {
+                    genome.FeedNeuralNetwork(GetBits(i).Select(x => (float)x).ToArray());
+                    var expectedOutput = GetBits(i + 1);
 
+					var output = BitsToInt(genome.Outputs.Select(x => x.Value).ToArray());
+					Console.WriteLine(String.Format("{0:0.00} | {1}", output, i));
+                }
+			}
+			         
             return (float)fitness;
         }
 
@@ -177,6 +189,17 @@ namespace NeuralNetsLearningToCount
 			var bits = new bool[b.Count];
 			b.CopyTo(bits, 0);
 			return bits.Take(inputs).Select(bit => (byte)(bit ? 1 : 0)).ToArray();
+		}
+
+		private float BitsToInt(float[] bits)
+		{
+			var sum = 0f;
+			for (int i = 0; i < bits.Length; i++)
+			{
+				sum += bits[i] * MathF.Pow(2, i);
+			}
+
+			return sum;
 		}
 
         private MutationManager InitMutations()
