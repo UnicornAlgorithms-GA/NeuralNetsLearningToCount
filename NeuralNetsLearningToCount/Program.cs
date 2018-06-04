@@ -13,7 +13,7 @@ using GeneticLib.GenomeFactory;
 using GeneticLib.GenomeFactory.GenomeProducer;
 using GeneticLib.GenomeFactory.GenomeProducer.Breeding;
 using GeneticLib.GenomeFactory.GenomeProducer.Breeding.Crossover;
-using GeneticLib.GenomeFactory.GenomeProducer.Breeding.Selection;
+using GeneticLib.GenomeFactory.GenomeProducer.Selection;
 using GeneticLib.GenomeFactory.GenomeProducer.Reinsertion;
 using GeneticLib.GenomeFactory.Mutation;
 using GeneticLib.GenomeFactory.Mutation.NeuralMutations;
@@ -27,7 +27,12 @@ namespace NeuralNetsLearningToCount
 {
     class Program
     {
-		int genomesCount = 50;
+		private static readonly string pyNeuralNetGraphDrawerPath =
+			"../MachineLearningPyGraphUtils/PyNeuralNetDrawer.py";
+		private static readonly string pyFitnessGraphPath =
+			"../MachineLearningPyGraphUtils/DrawGraph.py";
+
+		int genomesCount = 10;
 
         float singleSynapseMutChance = 0.2f;
         float singleSynapseMutValue = 3f;
@@ -47,6 +52,9 @@ namespace NeuralNetsLearningToCount
               
         static void Main(string[] args)
         {
+			NeuralNetDrawer.pyGraphDrawerPath = pyNeuralNetGraphDrawerPath;
+            PyDrawGraph.pyGraphDrawerFilePath = pyFitnessGraphPath;
+
 			GARandomManager.Random = new RandomClassic((int)DateTime.Now.Ticks);
 			var neuralNetDrawer = new NeuralNetDrawer(false);
             var fitnessCollector = new GraphDataCollector();
@@ -77,7 +85,7 @@ namespace NeuralNetsLearningToCount
 									  .BestGenome as NeuralGenome;
 					
 					Console.WriteLine("Count:" + best.Neurons.Count());
-					fitnessCollector.Tick(i, best.Fitness);
+					//fitnessCollector.Tick(i, best.Fitness);
 					Console.WriteLine(String.Format(
 						"{0}) Best:{1:0.00} Sum:{2:0.00}",
 						i,
@@ -102,13 +110,14 @@ namespace NeuralNetsLearningToCount
                 synapseTracker,
 				inputs,
 				inputs,
-                new[] { 7 },
+                new[] { 12 },
                 () => (float)GARandomManager.Random.NextDouble(-1, 1),
                 true
 			);
 
-            var selection = new EliteSelection();
-            var crossover = new OnePointCrossover(true);
+			//var selection = new EliteSelection();
+			var selection = new RouletteWheelSelection();
+			var crossover = new OnePointCrossover(true);
             var breeding = new BreedingClassic(
                 crossoverPart,
                 1,
@@ -117,7 +126,10 @@ namespace NeuralNetsLearningToCount
                 InitMutations()
             );
 
-            var reinsertion = new EliteReinsertion(reinsertionPart, 0);
+			var reinsertion = new ReinsertionFromSelection(
+				reinsertionPart,
+				0,
+				new EliteSelection());
             var producers = new IGenomeProducer[] { breeding, reinsertion };
             var genomeForge = new GenomeForge(producers);
 
