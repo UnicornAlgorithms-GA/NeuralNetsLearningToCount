@@ -44,7 +44,7 @@ namespace NeuralNetsLearningToCount
 
         float allSynapsesMutChance = 0.1f;
         float allSynapsesMutChanceEach = 1f;
-        float allSynapsesMutValue = 1f;
+        float allSynapsesMutValue = 2f;
 
         float crossoverPart = 0.80f;
         float reinsertionPart = 0.2f;
@@ -135,7 +135,7 @@ namespace NeuralNetsLearningToCount
 			var model = new NeuralModelBase(
                 () => GARandomManager.NextFloat(-1f, 1f));
 
-			model.WeightConstraints = new Tuple<float, float>(-10, 10);
+			model.WeightConstraints = new Tuple<float, float>(-20, 20);
 
 			var bias = model.AddBiasNeuron();         
 			var layers = new List<Neuron[]>()
@@ -173,8 +173,8 @@ namespace NeuralNetsLearningToCount
 				model,
 				new RecursiveNetworkOpBaker());
 			
-			var selection = new EliteSelection();
-			//var selection = new RouletteWheelSelection();
+			//var selection = new EliteSelection();
+			var selection = new RouletteWheelSelection();
 			var crossover = new OnePointCrossover(true);
             var breeding = new BreedingClassic(
                 crossoverPart,
