@@ -22,6 +22,11 @@ using GeneticLib.Randomness;
 using GeneticLib.Utils.Graph;
 using GeneticLib.Utils.NeuralUtils;
 using GeneticLib.Utils.Extensions;
+using GeneticLib.Neurology.NeuralModels;
+using GeneticLib.Neurology.Neurons;
+using GeneticLib.Neurology.NeuronValueModifiers;
+using GeneticLib.Generations.InitialGeneration;
+using GeneticLib.Genome.NeuralGenomes.NetworkOperationBakers;
 
 namespace NeuralNetsLearningToCount
 {
@@ -98,23 +103,45 @@ namespace NeuralNetsLearningToCount
                 program.Evolve();
             }
             
-			neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
+			//neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
 			//fitnessCollector.Draw();
         }
 
 		public Program()
 		{
+
+
+			var model = new NeuralModelBase(
+                () => GARandomManager.NextFloat(-1f, 1f));
+
+			var bias = model.AddBiasNeuron();         
+			var layers = new List<Neuron[]>()
+			{
+				model.AddInputNeurons(inputs).ToArray(),
+
+				model.AddOutputNeurons(
+                    inputs,
+                    ActivationFunctions.Sigmoid
+				).ToArray(),
+
+				model.AddNeurons(
+					new Neuron(-1, ActivationFunctions.TanH)
+    				{
+    					//ValueModifiers = new[] { Dropout.DropoutFunc(0.5f) },
+    				},
+					count: 7
+				).ToArray()
+			};
+
+			model.ConnectLayers(layers);
+			model.ConnectBias(bias, layers.Skip(1));
+
 			var synapseTracker = new SynapseInnovNbTracker();
 
-			var initialGenerationGenerator = new NIGCLearningToCount(
-                synapseTracker,
-				inputs,
-				inputs,
-                new[] { 12 },
-                () => (float)GARandomManager.Random.NextDouble(-1, 1),
-                true
-			);
-
+			var initialGenerationGenerator = new NeuralInitialGenerationCreatorBase(
+				model,
+				new RecursiveNetworkOpBaker());
+			
 			//var selection = new EliteSelection();
 			var selection = new RouletteWheelSelection();
 			var crossover = new OnePointCrossover(true);
