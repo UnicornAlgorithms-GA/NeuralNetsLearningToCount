@@ -37,7 +37,7 @@ namespace NeuralNetsLearningToCount
 		private static readonly string pyFitnessGraphPath =
 			"../MachineLearningPyGraphUtils/DrawGraph.py";
 
-		int genomesCount = 10;
+		int genomesCount = 50;
 
         float singleSynapseMutChance = 0.2f;
         float singleSynapseMutValue = 3f;
@@ -51,9 +51,12 @@ namespace NeuralNetsLearningToCount
 
         GeneticManagerClassic geneticManager;
         public static int maxIterations = 30000;
-        public static bool targetReached = false;
 
-		int inputs = 3;
+        public static bool targetReached = false;
+		private static int generationsWithTargetReached = 5;
+		private static int generationsWithTargetReachedCount = 0;
+
+		private static int inputs = 3;
               
         static void Main(string[] args)
         {
@@ -71,12 +74,9 @@ namespace NeuralNetsLearningToCount
 
 			var program = new Program();
 
-            for (var i = 0; i < maxIterations; i++)
-            {
-                if (targetReached)
-                    break;
-
-                program.Evaluate();
+			for (var i = 0; i < maxIterations; i++)
+			{
+				program.Evaluate();
 
 				if (i % 10 == 0)
 				{
@@ -88,7 +88,7 @@ namespace NeuralNetsLearningToCount
 									  .GenerationManager
 									  .CurrentGeneration
 									  .BestGenome as NeuralGenome;
-					
+
 					Console.WriteLine("Count:" + best.Neurons.Count());
 					//fitnessCollector.Tick(i, best.Fitness);
 					Console.WriteLine(String.Format(
@@ -96,8 +96,31 @@ namespace NeuralNetsLearningToCount
 						i,
 						best.Fitness,
 						fintessSum));
-                        
+
 					neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
+
+					if (best.Fitness > -0.01f)
+					{
+						generationsWithTargetReachedCount++;
+						if (generationsWithTargetReachedCount >= generationsWithTargetReached)
+						{
+							targetReached = true;
+       
+							for (var j = 0; j < Math.Pow(2, inputs) - 1; j++)
+                            {
+								best.FeedNeuralNetwork(GetBits(j).Select(x => (float)x).ToArray());
+                                var expectedOutput = GetBits(j + 1);
+
+						        var output = BitsToInt(best.Outputs.Select(x => x.Value).ToArray());
+                                Console.WriteLine(String.Format("{0:0.00} | {1}", output, j));
+                             }
+							break;
+						}
+					}
+					else
+					{
+						generationsWithTargetReachedCount = 0;
+					}
 				}
 
                 program.Evolve();
@@ -108,29 +131,37 @@ namespace NeuralNetsLearningToCount
         }
 
 		public Program()
-		{
-
-
+		{         
 			var model = new NeuralModelBase(
                 () => GARandomManager.NextFloat(-1f, 1f));
+
+			model.WeightConstraints = new Tuple<float, float>(-10, 10);
 
 			var bias = model.AddBiasNeuron();         
 			var layers = new List<Neuron[]>()
 			{
 				model.AddInputNeurons(inputs).ToArray(),
+    
+				model.AddNeurons(
+					new Neuron(-1, ActivationFunctions.TanH)
+    				{
+    					//ValueModifiers = new[] { Dropout.DropoutFunc(0.06f) },
+    				},
+					count: 5
+				).ToArray(),
+
+				model.AddNeurons(
+                    new Neuron(-1, ActivationFunctions.TanH)
+                    {
+                        //ValueModifiers = new[] { Dropout.DropoutFunc(0.06f) },
+                    },
+                    count: 5
+                ).ToArray(),
 
 				model.AddOutputNeurons(
                     inputs,
                     ActivationFunctions.Sigmoid
-				).ToArray(),
-
-				model.AddNeurons(
-					new Neuron(-1, ActivationFunctions.TanH)
-    				{
-    					//ValueModifiers = new[] { Dropout.DropoutFunc(0.5f) },
-    				},
-					count: 7
-				).ToArray()
+                ).ToArray(),
 			};
 
 			model.ConnectLayers(layers);
@@ -142,8 +173,8 @@ namespace NeuralNetsLearningToCount
 				model,
 				new RecursiveNetworkOpBaker());
 			
-			//var selection = new EliteSelection();
-			var selection = new RouletteWheelSelection();
+			var selection = new EliteSelection();
+			//var selection = new RouletteWheelSelection();
 			var crossover = new OnePointCrossover(true);
             var breeding = new BreedingClassic(
                 crossoverPart,
@@ -204,24 +235,11 @@ namespace NeuralNetsLearningToCount
 				                 .Zip(expectedOutput, (o, e) => Math.Abs(o - e))
 								 .Sum();
 			}
-
-			if (!targetReached && Math.Abs(fitness) < 0.01)
-			{
-				targetReached = true;
-				for (var i = 0; i < Math.Pow(2, inputs) - 1; i++)
-                {
-                    genome.FeedNeuralNetwork(GetBits(i).Select(x => (float)x).ToArray());
-                    var expectedOutput = GetBits(i + 1);
-
-					var output = BitsToInt(genome.Outputs.Select(x => x.Value).ToArray());
-					Console.WriteLine(String.Format("{0:0.00} | {1}", output, i));
-                }
-			}
-			         
+            
             return (float)fitness;
         }
 
-		private byte[] GetBits(int value)
+		private static byte[] GetBits(int value)
 		{
 			var b = new BitArray(new int[] { value });
 			var bits = new bool[b.Count];
@@ -229,7 +247,7 @@ namespace NeuralNetsLearningToCount
 			return bits.Take(inputs).Select(bit => (byte)(bit ? 1 : 0)).ToArray();
 		}
 
-		private float BitsToInt(float[] bits)
+		private static float BitsToInt(float[] bits)
 		{
 			var sum = 0f;
 			for (int i = 0; i < bits.Length; i++)
@@ -243,6 +261,7 @@ namespace NeuralNetsLearningToCount
         private MutationManager InitMutations()
         {
             var result = new MutationManager();
+
             result.MutationEntries.Add(new MutationEntry(
                 new SingleSynapseWeightMutation(() => singleSynapseMutValue),
                 singleSynapseMutChance,
@@ -251,7 +270,7 @@ namespace NeuralNetsLearningToCount
 
 			result.MutationEntries.Add(new MutationEntry(
                 new SingleSynapseWeightMutation(() => singleSynapseMutValue * 3),
-                singleSynapseMutChance / 40,
+                singleSynapseMutChance / 20,
                 EMutationType.Independent
             ));
 
