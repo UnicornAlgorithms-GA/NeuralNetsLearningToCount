@@ -132,9 +132,8 @@ namespace NeuralNetsLearningToCount
 
 		public Program()
 		{         
-			var model = new NeuralModelBase(
-                () => GARandomManager.NextFloat(-1f, 1f));
-
+			var model = new NeuralModelBase();
+			model.defaultWeightInitializer = () => GARandomManager.NextFloat(-1f, 1f);
 			model.WeightConstraints = new Tuple<float, float>(-20, 20);
 
 			var bias = model.AddBiasNeuron();         
