@@ -27,6 +27,9 @@ using GeneticLib.Neurology.Neurons;
 using GeneticLib.Neurology.NeuronValueModifiers;
 using GeneticLib.Generations.InitialGeneration;
 using GeneticLib.Genome.NeuralGenomes.NetworkOperationBakers;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace NeuralNetsLearningToCount
 {
@@ -57,14 +60,14 @@ namespace NeuralNetsLearningToCount
 		private static int generationsWithTargetReachedCount = 0;
 
 		private static int inputs = 3;
-              
+
         static void Main(string[] args)
-        {
+        {         
 			NeuralNetDrawer.pyGraphDrawerPath = pyNeuralNetGraphDrawerPath;
             PyDrawGraph.pyGraphDrawerFilePath = pyFitnessGraphPath;
 
 			GARandomManager.Random = new RandomClassic((int)DateTime.Now.Ticks);
-			var neuralNetDrawer = new NeuralNetDrawer(false);
+			//var neuralNetDrawer = new NeuralNetDrawer(false);
             var fitnessCollector = new GraphDataCollector();
 
             NeuralGenomeToJSONExtension.distBetweenNodes *= 5;
@@ -73,13 +76,21 @@ namespace NeuralNetsLearningToCount
 			NeuralGenomeToJSONExtension.yPadding = 0.03f;
 
 			var program = new Program();
+			var watch = new Stopwatch();
+			watch.Start();
 
 			for (var i = 0; i < maxIterations; i++)
-			{
+			{            
+				//program.EvaluateAsync(25).Wait();
 				program.Evaluate();
 
 				if (i % 10 == 0)
 				{
+					watch.Stop();
+					Console.WriteLine(watch.Elapsed);
+					watch.Restart();
+
+
 					var fintessSum = program.geneticManager
 											.GenerationManager
 											.CurrentGeneration
@@ -97,7 +108,7 @@ namespace NeuralNetsLearningToCount
 						best.Fitness,
 						fintessSum));
 
-					neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
+					//neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
 
 					if (best.Fitness > -0.01f)
 					{
@@ -172,8 +183,8 @@ namespace NeuralNetsLearningToCount
 				model,
 				new RecursiveNetworkOpBaker());
 			
-			//var selection = new EliteSelection();
-			var selection = new RouletteWheelSelection();
+			var selection = new EliteSelection();
+			//var selection = new RouletteWheelSelection();
 			var crossover = new OnePointCrossover(true);
             var breeding = new BreedingClassic(
                 crossoverPart,
@@ -206,14 +217,47 @@ namespace NeuralNetsLearningToCount
             geneticManager.Evolve();
         }
 
-        public void Evaluate()
+		public void Evaluate()
+		{
+			var genomes = geneticManager.GenerationManager
+                                        .CurrentGeneration
+                                        .Genomes;
+
+			foreach (var genome in genomes)
+				genome.Fitness = ComputeFitness(genome as NeuralGenome);
+
+			var orderedGenomes = genomes.OrderByDescending(g => g.Fitness)
+                                        .ToArray();
+
+            geneticManager.GenerationManager
+                          .CurrentGeneration
+                          .Genomes = orderedGenomes;
+		}
+
+        public async Task EvaluateAsync(int groupSize = 10)
         {
             var genomes = geneticManager.GenerationManager
                                         .CurrentGeneration
                                         .Genomes;
 
-            foreach (var genome in genomes)
-                genome.Fitness = ComputeFitness(genome as NeuralGenome);
+			var groups = genomes.Select((g, i) => new { Value = g, Index = i })
+			                    .GroupBy(x => x.Index / groupSize)
+			                    .Select(x => x.Select(v => v.Value));
+
+			var tasks = groups.Select(g =>
+			{
+				return Task.Run(() =>
+				{
+					foreach (var element in g)
+						element.Fitness = ComputeFitness(element as NeuralGenome);
+				});
+			}).ToArray();
+
+			//var tasks = genomes.Select(x => Task.Run(() => ComputeFitness(x as NeuralGenome)))
+			//                   .ToArray();
+
+			for (var i = 0; i < tasks.Length; i++)
+				await tasks[i];
 
             var orderedGenomes = genomes.OrderByDescending(g => g.Fitness)
                                         .ToArray();

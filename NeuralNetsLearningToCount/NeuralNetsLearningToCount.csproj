@@ -8,4 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\GeneticLib\GeneticLib\GeneticLib.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="await.cs" />
+  </ItemGroup>
 </Project>
