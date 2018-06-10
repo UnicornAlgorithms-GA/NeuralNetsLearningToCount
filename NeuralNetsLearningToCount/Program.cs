@@ -61,8 +61,13 @@ namespace NeuralNetsLearningToCount
 
 		private static int inputs = 3;
 
+		private static void DoStuff()
+		{
+			
+		}
+
         static void Main(string[] args)
-        {         
+        {
 			NeuralNetDrawer.pyGraphDrawerPath = pyNeuralNetGraphDrawerPath;
             PyDrawGraph.pyGraphDrawerFilePath = pyFitnessGraphPath;
 
@@ -80,9 +85,10 @@ namespace NeuralNetsLearningToCount
 			watch.Start();
 
 			for (var i = 0; i < maxIterations; i++)
-			{            
+			{
 				//program.EvaluateAsync(25).Wait();
 				program.Evaluate();
+				//program.EvaluateAsyncEach().Wait();
 
 				if (i % 10 == 0)
 				{
@@ -253,11 +259,27 @@ namespace NeuralNetsLearningToCount
 				});
 			}).ToArray();
 
-			//var tasks = genomes.Select(x => Task.Run(() => ComputeFitness(x as NeuralGenome)))
-			//                   .ToArray();
-
 			for (var i = 0; i < tasks.Length; i++)
 				await tasks[i];
+
+            var orderedGenomes = genomes.OrderByDescending(g => g.Fitness)
+                                        .ToArray();
+
+            geneticManager.GenerationManager
+                          .CurrentGeneration
+                          .Genomes = orderedGenomes;
+        }
+
+		public async Task EvaluateAsyncEach()
+        {
+            var genomes = geneticManager.GenerationManager
+                                        .CurrentGeneration
+                                        .Genomes;
+
+			var tasks = genomes.Select(x => Task.Run(() => x.Fitness = ComputeFitness(x as NeuralGenome)))
+			                   .ToArray();
+			foreach (var task in tasks)
+				await task;
 
             var orderedGenomes = genomes.OrderByDescending(g => g.Fitness)
                                         .ToArray();
