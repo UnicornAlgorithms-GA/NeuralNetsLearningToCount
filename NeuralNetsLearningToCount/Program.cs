@@ -72,7 +72,7 @@ namespace NeuralNetsLearningToCount
             PyDrawGraph.pyGraphDrawerFilePath = pyFitnessGraphPath;
 
 			GARandomManager.Random = new RandomClassic((int)DateTime.Now.Ticks);
-			//var neuralNetDrawer = new NeuralNetDrawer(false);
+			var neuralNetDrawer = new NeuralNetDrawer(false);
             var fitnessCollector = new GraphDataCollector();
 
             NeuralGenomeToJSONExtension.distBetweenNodes *= 5;
@@ -105,8 +105,7 @@ namespace NeuralNetsLearningToCount
 									  .GenerationManager
 									  .CurrentGeneration
 									  .BestGenome as NeuralGenome;
-
-					Console.WriteLine("Count:" + best.Neurons.Count());
+                                      
 					//fitnessCollector.Tick(i, best.Fitness);
 					Console.WriteLine(String.Format(
 						"{0}) Best:{1:0.00} Sum:{2:0.00}",
@@ -143,54 +142,18 @@ namespace NeuralNetsLearningToCount
                 program.Evolve();
             }
             
-			//neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
+			neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
 			//fitnessCollector.Draw();
         }
 
 		public Program()
-		{         
-			var model = new NeuralModelBase();
-			model.defaultWeightInitializer = () => GARandomManager.NextFloat(-1f, 1f);
-			model.WeightConstraints = new Tuple<float, float>(-20, 20);
-
-			var bias = model.AddBiasNeuron();         
-			var layers = new List<Neuron[]>()
-			{
-				model.AddInputNeurons(inputs).ToArray(),
-    
-				model.AddNeurons(
-					new Neuron(-1, ActivationFunctions.TanH)
-    				{
-    					//ValueModifiers = new[] { Dropout.DropoutFunc(0.06f) },
-    				},
-					count: 5
-				).ToArray(),
-
-				model.AddNeurons(
-                    new Neuron(-1, ActivationFunctions.TanH)
-                    {
-                        //ValueModifiers = new[] { Dropout.DropoutFunc(0.06f) },
-                    },
-                    count: 5
-                ).ToArray(),
-
-				model.AddOutputNeurons(
-                    inputs,
-                    ActivationFunctions.Sigmoid
-                ).ToArray(),
-			};
-
-			model.ConnectLayers(layers);
-			model.ConnectBias(bias, layers.Skip(1));
-
-			var synapseTracker = new SynapseInnovNbTracker();
-
+		{                  
 			var initialGenerationGenerator = new NeuralInitialGenerationCreatorBase(
-				model,
+				InitNeuralModel(),
 				new RecursiveNetworkOpBaker());
 			
-			var selection = new EliteSelection();
-			//var selection = new RouletteWheelSelection();
+			//var selection = new EliteSelection();
+			var selection = new RouletteWheelSelectionWithRepetion();
 			var crossover = new OnePointCrossover(true);
             var breeding = new BreedingClassic(
                 crossoverPart,
@@ -321,6 +284,37 @@ namespace NeuralNetsLearningToCount
 			}
 
 			return sum;
+		}
+
+		private INeuralModel InitNeuralModel()
+		{
+			var model = new NeuralModelBase();
+            model.defaultWeightInitializer = () => GARandomManager.NextFloat(-1f, 1f);
+            model.WeightConstraints = new Tuple<float, float>(-10, 10);
+
+            var bias = model.AddBiasNeuron();
+            var layers = new List<Neuron[]>()
+            {
+                model.AddInputNeurons(inputs).ToArray(),
+
+                model.AddNeurons(
+					new Neuron(-1, ActivationFunctions.Gaussian)
+                    {
+                        //ValueModifiers = new[] { Dropout.DropoutFunc(0.06f) },
+                    },
+					count: inputs
+                ).ToArray(),
+
+                model.AddOutputNeurons(
+                    inputs,
+                    ActivationFunctions.Sigmoid
+                ).ToArray(),
+            };
+
+            model.ConnectLayers(layers);
+            model.ConnectBias(bias, layers.Skip(1));
+
+			return model;
 		}
 
         private MutationManager InitMutations()
