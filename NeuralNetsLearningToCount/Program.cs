@@ -137,6 +137,8 @@ namespace NeuralNetsLearningToCount
 					{
 						generationsWithTargetReachedCount = 0;
 					}
+
+					//neuralNetDrawer.QueueNeuralNetJson(program.GetBestJson());
 				}
 
                 program.Evolve();
@@ -150,7 +152,7 @@ namespace NeuralNetsLearningToCount
 		{                  
 			var initialGenerationGenerator = new NeuralInitialGenerationCreatorBase(
 				InitNeuralModel(),
-				new RecursiveNetworkOpBaker());
+				new FeedForwardOpBaker());
 			
 			//var selection = new EliteSelection();
 			var selection = new RouletteWheelSelectionWithRepetion();
@@ -257,6 +259,7 @@ namespace NeuralNetsLearningToCount
             var fitness = 0d;
 			for (var i = 0; i < Math.Pow(2, inputs) - 1; i++)
 			{
+				genome.NetworkOperationBaker.BakeNetwork(genome);
 				genome.FeedNeuralNetwork(GetBits(i).Select(x => (float)x).ToArray());
 				var expectedOutput = GetBits(i + 1);
 				fitness -= genome.Outputs.Select(x => x.Value)
@@ -313,7 +316,7 @@ namespace NeuralNetsLearningToCount
 
             model.ConnectLayers(layers);
             model.ConnectBias(bias, layers.Skip(1));
-
+            
 			return model;
 		}
 
